@@ -19,6 +19,8 @@ public class Utility {
     // Format used for storing dates in the database.  ALso used for converting those strings
     // back into date objects for comparison/processing.
     public static final String DATE_FORMAT = "yyyyMMdd";
+    public static final String INTENT_LOCATION = "location";
+    public static final String INTENT_UNITS = "units";
 
     /**
      * Helper method to convert the database representation of the date into something to display

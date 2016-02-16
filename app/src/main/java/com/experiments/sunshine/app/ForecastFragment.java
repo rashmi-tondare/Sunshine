@@ -33,6 +33,7 @@ import android.widget.Toast;
 import com.experiments.sunshine.app.data.WeatherContract;
 import com.experiments.sunshine.app.data.WeatherContract.LocationEntry;
 import com.experiments.sunshine.app.data.WeatherContract.WeatherEntry;
+import com.experiments.sunshine.app.service.SunshineService;
 
 /**
  * A placeholder fragment containing a simple view.
@@ -180,7 +181,10 @@ public class ForecastFragment extends Fragment implements LoaderManager.LoaderCa
         SharedPreferences sharedPreferences = PreferenceManager.getDefaultSharedPreferences(getActivity().getApplicationContext());
         String location = sharedPreferences.getString(getString(R.string.pref_location_key), getString(R.string.pref_location_default));
         String unit = sharedPreferences.getString(getString(R.string.pref_units_key), getString(R.string.pref_units_value_metric));
-        new FetchWeatherTask(getActivity()).execute(location, unit);
+        Intent intent = new Intent(getActivity(), SunshineService.class);
+        intent.putExtra(Utility.INTENT_LOCATION, location);
+        intent.putExtra(Utility.INTENT_UNITS, unit);
+        getActivity().startService(intent);
     }
 
     protected void onLocationChanged() {

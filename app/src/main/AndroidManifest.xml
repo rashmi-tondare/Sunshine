@@ -40,6 +40,9 @@
             android:authorities="com.experiments.sunshine.app"
             android:name=".data.WeatherProvider"
             android:exported="false"/>
+
+        <service android:name=".service.SunshineService"
+            android:enabled="true"/>
     </application>
 
 </manifest>
