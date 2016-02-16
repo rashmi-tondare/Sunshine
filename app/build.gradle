@@ -13,7 +13,7 @@ android {
     }
     buildTypes {
         debug {
-            buildConfigField "String", "OPEN_WEATHER_MAP_API_KEY", APIKEY
+            buildConfigField "String", "OPEN_WEATHER_MAP_API_KEY", "\"ea43f3cd4f1e88bd4a7331ac032c55d4\""
         }
 
         release {
