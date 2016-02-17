@@ -4,5 +4,5 @@
     android:name="com.experiments.sunshine.app.ForecastFragment"
     android:layout_width="match_parent"
     android:layout_height="match_parent"
-    tools:context="com.example.android.sunshine.app.ForecastFragment"
+    tools:context="com.experiments.sunshine.app.ForecastFragment"
     tools:layout="@android:layout/list_content" />

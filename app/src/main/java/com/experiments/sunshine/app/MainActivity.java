@@ -8,6 +8,8 @@ import android.support.v7.app.AppCompatActivity;
 import android.view.Menu;
 import android.view.MenuItem;
 
+import com.experiments.sunshine.app.sync.SunshineSyncAdapter;
+
 public class MainActivity extends AppCompatActivity implements ForecastFragment.Callback{
 
     protected static final String DETAILFRAGMENT_TAG = "DFTAG";
@@ -36,6 +38,7 @@ public class MainActivity extends AppCompatActivity implements ForecastFragment.
         forecastFragment.setUseTodayLayout(!mTwoPane);
         mLocation = PreferenceManager.getDefaultSharedPreferences(getApplicationContext()).getString(getString(R.string.pref_location_key), getString(R.string.pref_units_value_metric));
 
+        SunshineSyncAdapter.initializeSyncAdapter(this);
     }
 
     @Override
