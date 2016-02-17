@@ -252,9 +252,11 @@ public class ForecastFragment extends Fragment implements LoaderManager.LoaderCa
                 }
                 else if (((MainActivity) getActivity()).isTwoPane()){
                     forecastListView.setItemChecked(0, true);
-                    forecastListView.performItemClick(forecastAdapter.getView(0, null, null),
-                            0,
-                            forecastAdapter.getItemId(0));
+                    if (data.moveToFirst()) {
+                        forecastListView.performItemClick(forecastAdapter.getView(0, null, null),
+                                0,
+                                forecastAdapter.getItemId(0));
+                    }
 
                 }
 
