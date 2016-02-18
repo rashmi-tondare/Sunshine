@@ -5,18 +5,14 @@ package com.experiments.sunshine.app;
  * Created on 2/2/16.
  */
 
-import android.Manifest;
 import android.content.Intent;
 import android.content.SharedPreferences;
-import android.content.pm.PackageManager;
 import android.database.Cursor;
 import android.net.Uri;
 import android.os.Bundle;
 import android.preference.PreferenceManager;
-import android.support.v4.app.ActivityCompat;
 import android.support.v4.app.Fragment;
 import android.support.v4.app.LoaderManager;
-import android.support.v4.content.ContextCompat;
 import android.support.v4.content.CursorLoader;
 import android.support.v4.content.Loader;
 import android.util.Log;
@@ -40,7 +36,6 @@ import com.experiments.sunshine.app.sync.SunshineSyncAdapter;
  */
 public class ForecastFragment extends Fragment implements LoaderManager.LoaderCallbacks<Cursor> {
 
-    private static final int MY_PERMISSIONS_REQUEST_INTERNET = 1;
     private static final String LOG_TAG = ForecastFragment.class.getSimpleName();
 
     private static final int WEATHER_LOADER_ID = 1;
@@ -141,36 +136,34 @@ public class ForecastFragment extends Fragment implements LoaderManager.LoaderCa
     public boolean onOptionsItemSelected(MenuItem item) {
         int id = item.getItemId();
 
-        //noinspection SimplifiableIfStatement
-        if (id == R.id.action_refresh) {
-            if (ContextCompat.checkSelfPermission(getActivity().getApplicationContext(), Manifest.permission.INTERNET) == PackageManager.PERMISSION_GRANTED) {
-                updateWeather();
-            }
-            else {
-                ActivityCompat.requestPermissions(getActivity(),
-                        new String[] { Manifest.permission.INTERNET },
-                        MY_PERMISSIONS_REQUEST_INTERNET);
-            }
-            return true;
-        }
-        else if (id == R.id.action_view_location) {
-            Intent intent = new Intent(Intent.ACTION_VIEW);
+        if (id == R.id.action_view_location) {
+            if (forecastAdapter != null) {
+                Cursor cursor = forecastAdapter.getCursor();
+                if (cursor != null) {
+                    cursor.moveToPosition(0);
+                    String posLat = cursor.getColumnName(COL_COORD_LAT);
+                    String posLong = cursor.getColumnName(COL_COORD_LONG);
+                    Uri geoUri = Uri.parse("geo:" + posLat + "," + posLong);
 
-            SharedPreferences sharedPreferences = PreferenceManager.getDefaultSharedPreferences(getActivity().getApplicationContext());
-            String location = sharedPreferences.getString(getString(R.string.pref_location_key), getString(R.string.pref_location_default));
+                    Intent intent = new Intent(Intent.ACTION_VIEW);
 
-            Uri locationUri = Uri.parse("geo:0,0")
-                    .buildUpon()
-                    .appendQueryParameter("q", location)
-                    .build();
-            intent.setData(locationUri);
+                    SharedPreferences sharedPreferences = PreferenceManager.getDefaultSharedPreferences(getActivity().getApplicationContext());
+                    String location = sharedPreferences.getString(getString(R.string.pref_location_key), getString(R.string.pref_location_default));
 
-            if (intent.resolveActivity(getActivity().getPackageManager()) != null) {
-                startActivity(intent);
-            }
-            else {
-                Log.d(LOG_TAG, "Couldn't diplay " + location + ". No receiving apps installed.");
-                Toast.makeText(getActivity(), "Maps not installed", Toast.LENGTH_SHORT).show();
+                    Uri locationUri = geoUri
+                            .buildUpon()
+                            .appendQueryParameter("q", location + ",in")
+                            .build();
+                    intent.setData(locationUri);
+
+                    if (intent.resolveActivity(getActivity().getPackageManager()) != null) {
+                        startActivity(intent);
+                    }
+                    else {
+                        Log.d(LOG_TAG, "Couldn't display " + location + ". No receiving apps installed.");
+                        Toast.makeText(getActivity(), "Maps not installed", Toast.LENGTH_SHORT).show();
+                    }
+                }
             }
         }
 
@@ -184,33 +177,6 @@ public class ForecastFragment extends Fragment implements LoaderManager.LoaderCa
     protected void onLocationChanged() {
         updateWeather();
         getLoaderManager().restartLoader(WEATHER_LOADER_ID, null, this);
-    }
-
-    @Override
-    public void onRequestPermissionsResult(int requestCode, String permissions[], int[] grantResults) {
-        switch (requestCode) {
-            case MY_PERMISSIONS_REQUEST_INTERNET: {
-                // If request is cancelled, the result arrays are empty.
-                if (grantResults.length > 0
-                    && grantResults[0] == PackageManager.PERMISSION_GRANTED) {
-
-                    // permission was granted, yay! Do the
-                    // task you need to do.
-                    updateWeather();
-
-                }
-                else {
-
-                    // permission denied, boo! Disable the
-                    // functionality that depends on this permission.
-                    Toast.makeText(getActivity(), "Internet permission denied", Toast.LENGTH_SHORT).show();
-                }
-                return;
-            }
-
-                // other 'case' lines to check for other
-                // permissions this app might request
-        }
     }
 
     @Override
@@ -250,7 +216,7 @@ public class ForecastFragment extends Fragment implements LoaderManager.LoaderCa
                             mPosition,
                             forecastAdapter.getItemId(mPosition));
                 }
-                else if (((MainActivity) getActivity()).isTwoPane()){
+                else if (((MainActivity) getActivity()).isTwoPane()) {
                     forecastListView.setItemChecked(0, true);
                     if (data.moveToFirst()) {
                         forecastListView.performItemClick(forecastAdapter.getView(0, null, null),
