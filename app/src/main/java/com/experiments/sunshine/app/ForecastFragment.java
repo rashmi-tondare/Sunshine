@@ -204,6 +204,7 @@ public class ForecastFragment extends Fragment implements LoaderManager.LoaderCa
                 Log.d(LOG_TAG, "on create loader");
                 // Sort order:  Ascending, by date.
                 String sortOrder = WeatherContract.WeatherEntry.COLUMN_DATE + " ASC";
+                locationSetting = Utility.getPreferredLocation(getActivity());
                 Uri weatherForLocationUri = WeatherContract.WeatherEntry.buildWeatherLocationWithStartDate(
                         locationSetting, System.currentTimeMillis());
 
@@ -226,22 +227,20 @@ public class ForecastFragment extends Fragment implements LoaderManager.LoaderCa
                 Log.d(LOG_TAG, "on load finished");
                 forecastAdapter.swapCursor(data);
 
-                if (mPosition != ListView.INVALID_POSITION) {
-                    forecastListView.setItemChecked(mPosition, true);
-                    forecastListView.smoothScrollToPosition(mPosition);
-
-                    forecastListView.performItemClick(forecastAdapter.getView(mPosition, null, null),
-                            mPosition,
-                            forecastAdapter.getItemId(mPosition));
-                }
-                else if (((MainActivity) getActivity()).isTwoPane()) {
-                    forecastListView.setItemChecked(0, true);
-                    if (data.moveToFirst()) {
-                        forecastListView.performItemClick(forecastAdapter.getView(0, null, null),
-                                0,
-                                forecastAdapter.getItemId(0));
+                if (((MainActivity) getActivity()).isTwoPane()) {
+                    if (mPosition != ListView.INVALID_POSITION) {
+                        forecastListView.setItemChecked(mPosition, true);
+                        forecastListView.smoothScrollToPosition(mPosition);
                     }
+                    else {
+                        forecastListView.setItemChecked(0, true);
+                        if (data.moveToFirst()) {
+                            forecastListView.performItemClick(forecastAdapter.getView(0, null, null),
+                                    0,
+                                    forecastAdapter.getItemId(0));
+                        }
 
+                    }
                 }
 
                 break;

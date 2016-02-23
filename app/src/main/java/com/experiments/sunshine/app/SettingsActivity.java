@@ -45,7 +45,7 @@ import com.google.android.gms.maps.model.LatLngBounds;
  * API Guide</a> for more information on developing a Settings UI.
  */
 public class SettingsActivity extends PreferenceActivity
-        implements Preference.OnPreferenceChangeListener {
+        implements Preference.OnPreferenceChangeListener, SharedPreferences.OnSharedPreferenceChangeListener {
 
     private static final int PLACE_PICKER_REQUEST = 1;
     private SharedPreferences sharedPreferences;
@@ -63,6 +63,20 @@ public class SettingsActivity extends PreferenceActivity
         bindPreferenceSummaryToValue(findPreference(getString(R.string.pref_location_key)));
         bindPreferenceSummaryToValue(findPreference(getString(R.string.pref_units_key)));
         bindPreferenceSummaryToValue(findPreference(getString(R.string.pref_enable_notifications_key)));
+    }
+
+    @Override
+    protected void onResume() {
+        super.onResume();
+
+        sharedPreferences.registerOnSharedPreferenceChangeListener(this);
+    }
+
+    @Override
+    protected void onPause() {
+        super.onPause();
+
+        sharedPreferences.unregisterOnSharedPreferenceChangeListener(this);
     }
 
     /**
@@ -169,6 +183,13 @@ public class SettingsActivity extends PreferenceActivity
                 break;
             default:
                 super.onActivityResult(requestCode, resultCode, data);
+        }
+    }
+
+    @Override
+    public void onSharedPreferenceChanged(SharedPreferences sharedPreferences, String key) {
+        if (key.equals(getString(R.string.pref_address_key))) {
+            onPreferenceChange(findPreference(getString(R.string.pref_location_key)), sharedPreferences.getString(key, ""));
         }
     }
 }
