@@ -1,4 +1,3 @@
-
 package com.experiments.sunshine.app.sync;
 
 import android.accounts.Account;
@@ -46,11 +45,11 @@ import java.util.Vector;
 public class SunshineSyncAdapter extends AbstractThreadedSyncAdapter {
     public static final String LOG_TAG = SunshineSyncAdapter.class.getSimpleName();
 
-    private static final String[] NOTIFY_WEATHER_PROJECTION = new String[] {
-                                                                             WeatherContract.WeatherEntry.COLUMN_WEATHER_ID,
-                                                                             WeatherContract.WeatherEntry.COLUMN_MAX_TEMP,
-                                                                             WeatherContract.WeatherEntry.COLUMN_MIN_TEMP,
-                                                                             WeatherContract.WeatherEntry.COLUMN_SHORT_DESC
+    private static final String[] NOTIFY_WEATHER_PROJECTION = new String[]{
+            WeatherContract.WeatherEntry.COLUMN_WEATHER_ID,
+            WeatherContract.WeatherEntry.COLUMN_MAX_TEMP,
+            WeatherContract.WeatherEntry.COLUMN_MIN_TEMP,
+            WeatherContract.WeatherEntry.COLUMN_SHORT_DESC
     };
     // these indices must match the projection
     private static final int INDEX_WEATHER_ID = 0;
@@ -93,15 +92,30 @@ public class SunshineSyncAdapter extends AbstractThreadedSyncAdapter {
             // Construct the URL for the OpenWeatherMap query
             // Possible parameters are avaiable at OWM's forecast API page, at
             // http://openweathermap.org/API#forecast
-            final String FORECAST_BASE_URL = "http://api.openweathermap.org/data/2.5/forecast/daily?";
+            //final String FORECAST_BASE_URL = "http://api.openweathermap.org/data/2.5/forecast/daily?";
+            final String FORECAST_BASE_URL = "http://api.openweathermap.org/data/2.5/forecast/weather?";
             final String QUERY_PARAM = "q";
             final String FORMAT_PARAM = "mode";
             final String UNITS_PARAM = "units";
             final String DAYS_PARAM = "cnt";
             final String APPID_PARAM = "APPID";
+            final String LAT_PARAM = "lat";
+            final String LONG_PARAM = "lon";
+
+            /*Uri builtUri = Uri.parse(FORECAST_BASE_URL).buildUpon()
+                    .appendQueryParameter(QUERY_PARAM, locationQuery)
+                    .appendQueryParameter(FORMAT_PARAM, format)
+                    .appendQueryParameter(UNITS_PARAM, units)
+                    .appendQueryParameter(DAYS_PARAM, Integer.toString(numDays))
+                    .appendQueryParameter(APPID_PARAM, BuildConfig.OPEN_WEATHER_MAP_API_KEY)
+                    .build();*/
+
+            float latitude = sharedPreferences.getFloat(getContext().getString(R.string.pref_latitude_key), Float.parseFloat(getContext().getString(R.string.latitude_default)));
+            float longitude = sharedPreferences.getFloat(getContext().getString(R.string.pref_longitude_key), Float.parseFloat(getContext().getString(R.string.longitude_default)));
 
             Uri builtUri = Uri.parse(FORECAST_BASE_URL).buildUpon()
-                    .appendQueryParameter(QUERY_PARAM, locationQuery)
+                    .appendQueryParameter(LAT_PARAM, Float.toString(latitude))
+                    .appendQueryParameter(LONG_PARAM, Float.toString(longitude))
                     .appendQueryParameter(FORMAT_PARAM, format)
                     .appendQueryParameter(UNITS_PARAM, units)
                     .appendQueryParameter(DAYS_PARAM, Integer.toString(numDays))
@@ -200,15 +214,17 @@ public class SunshineSyncAdapter extends AbstractThreadedSyncAdapter {
         // Weather information.  Each day's forecast info is an element of the "list" array.
         final String OWM_LIST = "list";
 
+        final String OWM_MAIN = "main";
+        final String OWM_WIND = "wind";
         final String OWM_PRESSURE = "pressure";
         final String OWM_HUMIDITY = "humidity";
         final String OWM_WINDSPEED = "speed";
         final String OWM_WIND_DIRECTION = "deg";
 
         // All temperatures are children of the "temp" object.
-        final String OWM_TEMPERATURE = "temp";
-        final String OWM_MAX = "max";
-        final String OWM_MIN = "min";
+        //final String OWM_TEMPERATURE = "temp";
+        final String OWM_MAX = "temp_max";
+        final String OWM_MIN = "temp_min";
 
         final String OWM_WEATHER = "weather";
         final String OWM_DESCRIPTION = "main";
@@ -263,27 +279,28 @@ public class SunshineSyncAdapter extends AbstractThreadedSyncAdapter {
 
                 // Get the JSON object representing the day
                 JSONObject dayForecast = weatherArray.getJSONObject(i);
+                JSONObject dayMainForecast = dayForecast.getJSONObject(OWM_MAIN);
+                JSONObject windForecast = dayForecast.getJSONObject(OWM_WIND);
 
                 // Cheating to convert this to UTC time, which is what we want anyhow
                 dateTime = dayTime.setJulianDay(julianStartDay + i);
 
-                pressure = dayForecast.getDouble(OWM_PRESSURE);
-                humidity = dayForecast.getInt(OWM_HUMIDITY);
-                windSpeed = dayForecast.getDouble(OWM_WINDSPEED);
-                windDirection = dayForecast.getDouble(OWM_WIND_DIRECTION);
+                pressure = dayMainForecast.getDouble(OWM_PRESSURE);
+                humidity = dayMainForecast.getInt(OWM_HUMIDITY);
+                windSpeed = windForecast.getDouble(OWM_WINDSPEED);
+                windDirection = windForecast.getDouble(OWM_WIND_DIRECTION);
 
                 // Description is in a child array called "weather", which is 1 element long.
                 // That element also contains a weather code.
-                JSONObject weatherObject =
-                                           dayForecast.getJSONArray(OWM_WEATHER).getJSONObject(0);
+                JSONObject weatherObject = dayForecast.getJSONArray(OWM_WEATHER).getJSONObject(0);
                 description = weatherObject.getString(OWM_DESCRIPTION);
                 weatherId = weatherObject.getInt(OWM_WEATHER_ID);
 
                 // Temperatures are in a child object called "temp".  Try not to name variables
                 // "temp" when working with temperature.  It confuses everybody.
-                JSONObject temperatureObject = dayForecast.getJSONObject(OWM_TEMPERATURE);
-                high = temperatureObject.getDouble(OWM_MAX);
-                low = temperatureObject.getDouble(OWM_MIN);
+//                JSONObject temperatureObject = dayForecast.getJSONObject(OWM_TEMPERATURE);
+                high = dayMainForecast.getDouble(OWM_MAX);
+                low = dayMainForecast.getDouble(OWM_MIN);
 
                 ContentValues weatherValues = new ContentValues();
 
@@ -414,6 +431,12 @@ public class SunshineSyncAdapter extends AbstractThreadedSyncAdapter {
              * here.
              */
             onAccountCreated(newAccount, context);
+        }
+        else {
+            Bundle bundle = new Bundle();
+            bundle.putBoolean(ContentResolver.SYNC_EXTRAS_EXPEDITED, true);
+            bundle.putBoolean(ContentResolver.SYNC_EXTRAS_MANUAL, true);
+            ContentResolver.requestSync(newAccount, context.getString(R.string.content_authority), bundle );
         }
         return newAccount;
     }

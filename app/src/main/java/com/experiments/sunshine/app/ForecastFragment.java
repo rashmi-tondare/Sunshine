@@ -5,16 +5,17 @@ package com.experiments.sunshine.app;
  * Created on 2/2/16.
  */
 
+import android.content.BroadcastReceiver;
+import android.content.Context;
 import android.content.Intent;
-import android.content.SharedPreferences;
 import android.database.Cursor;
 import android.net.Uri;
 import android.os.Bundle;
-import android.preference.PreferenceManager;
 import android.support.v4.app.Fragment;
 import android.support.v4.app.LoaderManager;
 import android.support.v4.content.CursorLoader;
 import android.support.v4.content.Loader;
+import android.text.TextUtils;
 import android.util.Log;
 import android.view.LayoutInflater;
 import android.view.Menu;
@@ -68,6 +69,9 @@ public class ForecastFragment extends Fragment implements LoaderManager.LoaderCa
     private ListView forecastListView;
     private int mPosition = ListView.INVALID_POSITION;
     private boolean mUseTodayLayout;
+    private String locationSetting;
+    private FetchAddressReceiver fetchAddressReceiver;
+    private boolean receiverRegistered;
 
     /**
      * A callback interface that all activities containing this fragment must
@@ -109,7 +113,11 @@ public class ForecastFragment extends Fragment implements LoaderManager.LoaderCa
         });
         forecastAdapter.setUseTodayLayout(mUseTodayLayout);
 
-        getLoaderManager().initLoader(WEATHER_LOADER_ID, null, this);
+        locationSetting = Utility.getPreferredLocation(getActivity());
+
+        if (!TextUtils.isEmpty(locationSetting)) {
+            getLoaderManager().initLoader(WEATHER_LOADER_ID, null, this);
+        }
 
         if (savedInstanceState != null && savedInstanceState.containsKey(BUNDLE_POSITION)) {
             mPosition = savedInstanceState.getInt(BUNDLE_POSITION);
@@ -133,6 +141,15 @@ public class ForecastFragment extends Fragment implements LoaderManager.LoaderCa
     }
 
     @Override
+    public void onPause() {
+        super.onPause();
+
+        if (fetchAddressReceiver != null && receiverRegistered) {
+                getActivity().unregisterReceiver(fetchAddressReceiver);
+        }
+    }
+
+    @Override
     public boolean onOptionsItemSelected(MenuItem item) {
         int id = item.getItemId();
 
@@ -140,19 +157,19 @@ public class ForecastFragment extends Fragment implements LoaderManager.LoaderCa
             if (forecastAdapter != null) {
                 Cursor cursor = forecastAdapter.getCursor();
                 if (cursor != null) {
-                    cursor.moveToPosition(0);
-                    String posLat = cursor.getColumnName(COL_COORD_LAT);
-                    String posLong = cursor.getColumnName(COL_COORD_LONG);
+                    cursor.moveToFirst();
+                    String posLat = Float.toString(cursor.getFloat(COL_COORD_LAT));
+                    String posLong = Float.toString(cursor.getFloat(COL_COORD_LONG));
                     Uri geoUri = Uri.parse("geo:" + posLat + "," + posLong);
+
+                    Log.d(LOG_TAG, "MAPS: " + geoUri);
+                    Log.d(LOG_TAG, "cursor size " + cursor.getCount());
 
                     Intent intent = new Intent(Intent.ACTION_VIEW);
 
-                    SharedPreferences sharedPreferences = PreferenceManager.getDefaultSharedPreferences(getActivity().getApplicationContext());
-                    String location = sharedPreferences.getString(getString(R.string.pref_location_key), getString(R.string.pref_location_default));
-
                     Uri locationUri = geoUri
                             .buildUpon()
-                            .appendQueryParameter("q", location + ",in")
+                            .appendQueryParameter("q", posLat + "," + posLong)
                             .build();
                     intent.setData(locationUri);
 
@@ -160,7 +177,7 @@ public class ForecastFragment extends Fragment implements LoaderManager.LoaderCa
                         startActivity(intent);
                     }
                     else {
-                        Log.d(LOG_TAG, "Couldn't display " + location + ". No receiving apps installed.");
+                        Log.d(LOG_TAG, "Couldn't display location. No receiving apps installed.");
                         Toast.makeText(getActivity(), "Maps not installed", Toast.LENGTH_SHORT).show();
                     }
                 }
@@ -176,6 +193,7 @@ public class ForecastFragment extends Fragment implements LoaderManager.LoaderCa
 
     protected void onLocationChanged() {
         updateWeather();
+        locationSetting = Utility.getPreferredLocation(getActivity());
         getLoaderManager().restartLoader(WEATHER_LOADER_ID, null, this);
     }
 
@@ -183,8 +201,7 @@ public class ForecastFragment extends Fragment implements LoaderManager.LoaderCa
     public Loader<Cursor> onCreateLoader(int id, Bundle args) {
         switch (id) {
             case WEATHER_LOADER_ID:
-                String locationSetting = Utility.getPreferredLocation(getActivity());
-
+                Log.d(LOG_TAG, "on create loader");
                 // Sort order:  Ascending, by date.
                 String sortOrder = WeatherContract.WeatherEntry.COLUMN_DATE + " ASC";
                 Uri weatherForLocationUri = WeatherContract.WeatherEntry.buildWeatherLocationWithStartDate(
@@ -206,6 +223,7 @@ public class ForecastFragment extends Fragment implements LoaderManager.LoaderCa
     public void onLoadFinished(Loader<Cursor> loader, Cursor data) {
         switch (loader.getId()) {
             case WEATHER_LOADER_ID:
+                Log.d(LOG_TAG, "on load finished");
                 forecastAdapter.swapCursor(data);
 
                 if (mPosition != ListView.INVALID_POSITION) {
@@ -234,6 +252,7 @@ public class ForecastFragment extends Fragment implements LoaderManager.LoaderCa
 
     @Override
     public void onLoaderReset(Loader<Cursor> loader) {
+        Log.d(LOG_TAG, "on loader reset");
         switch (loader.getId()) {
             case WEATHER_LOADER_ID:
                 forecastAdapter.swapCursor(null);
@@ -247,6 +266,23 @@ public class ForecastFragment extends Fragment implements LoaderManager.LoaderCa
         this.mUseTodayLayout = useTodayLayout;
         if (forecastAdapter != null) {
             forecastAdapter.setUseTodayLayout(mUseTodayLayout);
+        }
+    }
+
+    public void initializeLoader() {
+        if (getLoaderManager().getLoader(ForecastFragment.WEATHER_LOADER_ID) == null) {
+            getLoaderManager().initLoader(ForecastFragment.WEATHER_LOADER_ID, null, this);
+        }
+    }
+
+    public class FetchAddressReceiver extends BroadcastReceiver {
+
+        @Override
+        public void onReceive(Context context, Intent intent) {
+            Log.d(LOG_TAG, "received address " + intent.getAction());
+            locationSetting = Utility.getPreferredLocation(getActivity());
+            SunshineSyncAdapter.initializeSyncAdapter(getActivity());
+            getLoaderManager().initLoader(WEATHER_LOADER_ID, null, ForecastFragment.this);
         }
     }
 }
