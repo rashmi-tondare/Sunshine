@@ -60,7 +60,7 @@ public class MainActivity extends AppCompatActivity implements ForecastFragment.
         ForecastFragment forecastFragment = (ForecastFragment) getSupportFragmentManager().findFragmentById(R.id.fragment_forecast);
         forecastFragment.setUseTodayLayout(!mTwoPane);
         sharedPreferences = PreferenceManager.getDefaultSharedPreferences(getApplicationContext());
-        mLocation = sharedPreferences.getString(getString(R.string.pref_address_key), "");
+        mLocation = sharedPreferences.getString(getString(R.string.pref_location_key), getString(R.string.pref_location_default));
 
         // Create an instance of GoogleAPIClient.
         if (mGoogleApiClient == null) {
@@ -235,8 +235,8 @@ public class MainActivity extends AppCompatActivity implements ForecastFragment.
             ActivityCompat.requestPermissions(this, new String[]{Manifest.permission.ACCESS_FINE_LOCATION, Manifest.permission.ACCESS_COARSE_LOCATION}, REQUEST_LOCATION_PERMISSION);
         }
 
-        String address = sharedPreferences.getString(getString(R.string.pref_address_key), "");
-        if (address.equals("")) {
+        String address = sharedPreferences.getString(getString(R.string.pref_location_key), getString(R.string.pref_location_default));
+        if (address.equals(getString(R.string.pref_location_default))) {
             mLastLocation = LocationServices.FusedLocationApi.getLastLocation(mGoogleApiClient);
             if (mLastLocation != null) {
                 double latitude = mLastLocation.getLatitude();

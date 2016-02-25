@@ -71,7 +71,7 @@ public class FetchAddressIntentService extends IntentService {
                 errorMessage = "No address found";
                 Log.e(TAG, errorMessage);
             }
-            sharedPreferences.edit().putString(getString(R.string.pref_address_key), "").commit();
+            sharedPreferences.edit().putString(getString(R.string.pref_location_key), getString(R.string.pref_location_default)).commit();
         } else {
             Address address = addresses.get(0);
             ArrayList<String> addressFragments = new ArrayList<String>();
@@ -84,7 +84,7 @@ public class FetchAddressIntentService extends IntentService {
             Log.i(TAG, "Address Found");
             String addressString = TextUtils.join(System.getProperty("line.separator"), addressFragments);
             Log.d(TAG, addressString);
-            sharedPreferences.edit().putString(getString(R.string.pref_address_key), addressString).commit();
+            sharedPreferences.edit().putString(getString(R.string.pref_location_key), addressString).commit();
 
             Intent broadcastIntent = new Intent();
             broadcastIntent.setAction(getString(R.string.address_intent_filter));

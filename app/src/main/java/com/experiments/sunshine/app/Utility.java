@@ -1,3 +1,4 @@
+
 package com.experiments.sunshine.app;
 
 /**
@@ -7,8 +8,12 @@ package com.experiments.sunshine.app;
 import android.content.Context;
 import android.content.SharedPreferences;
 import android.database.Cursor;
+import android.net.ConnectivityManager;
+import android.net.NetworkInfo;
 import android.preference.PreferenceManager;
 import android.text.format.Time;
+
+import com.experiments.sunshine.app.sync.SunshineSyncAdapter;
 
 import java.text.DateFormat;
 import java.text.SimpleDateFormat;
@@ -52,10 +57,12 @@ public class Utility {
                     formatId,
                     today,
                     getFormattedMonthDay(context, dateInMillis)));
-        } else if ( julianDay < currentJulianDay + 7 ) {
+        }
+        else if (julianDay < currentJulianDay + 7) {
             // If the input date is less than a week in the future, just return the day name.
             return getDayName(context, dateInMillis);
-        } else {
+        }
+        else {
             // Otherwise, use the form "Mon Jun 3"
             SimpleDateFormat shortenedDateFormat = new SimpleDateFormat("EEE MMM dd");
             return shortenedDateFormat.format(dateInMillis);
@@ -80,9 +87,11 @@ public class Utility {
         int currentJulianDay = Time.getJulianDay(System.currentTimeMillis(), t.gmtoff);
         if (julianDay == currentJulianDay) {
             return context.getString(R.string.today);
-        } else if ( julianDay == currentJulianDay +1 ) {
+        }
+        else if (julianDay == currentJulianDay + 1) {
             return context.getString(R.string.tomorrow);
-        } else {
+        }
+        else {
             Time time = new Time();
             time.setToNow();
             // Otherwise, the format is just the day of the week (e.g "Wednesday".
@@ -98,7 +107,7 @@ public class Utility {
      *                in Utility.DATE_FORMAT
      * @return The day in the form of a string formatted "December 6"
      */
-    public static String getFormattedMonthDay(Context context, long dateInMillis ) {
+    public static String getFormattedMonthDay(Context context, long dateInMillis) {
         Time time = new Time();
         time.setToNow();
         SimpleDateFormat dbDateFormat = new SimpleDateFormat(Utility.DATE_FORMAT);
@@ -109,8 +118,8 @@ public class Utility {
 
     public static String getPreferredLocation(Context context) {
         SharedPreferences prefs = PreferenceManager.getDefaultSharedPreferences(context);
-        return prefs.getString(context.getString(R.string.pref_address_key),
-                "");
+        return prefs.getString(context.getString(R.string.pref_location_key),
+                context.getString(R.string.pref_location_default));
     }
 
     public static boolean isMetric(Context context) {
@@ -122,9 +131,10 @@ public class Utility {
 
     public static String formatTemperature(Context context, double temperature, boolean isMetric) {
         double temp;
-        if ( !isMetric ) {
-            temp = 9*temperature/5+32;
-        } else {
+        if (!isMetric) {
+            temp = 9 * temperature / 5 + 32;
+        }
+        else {
             temp = temperature;
         }
         return context.getString(R.string.format_temperature, temp);
@@ -156,18 +166,19 @@ public class Utility {
                 cursor.getDouble(ForecastFragment.COL_WEATHER_MIN_TEMP));
 
         return Utility.formatDate(cursor.getLong(ForecastFragment.COL_WEATHER_DATE)) +
-                " - "
-                + cursor.getString(ForecastFragment.COL_WEATHER_DESC)
-                +
-                " - "
-                + highAndLow;
+               " - "
+               + cursor.getString(ForecastFragment.COL_WEATHER_DESC)
+               +
+               " - "
+               + highAndLow;
     }
 
     public static String getFormattedWind(Context context, float windSpeed, float degrees) {
         int windFormat;
         if (Utility.isMetric(context)) {
             windFormat = R.string.format_wind_kmh;
-        } else {
+        }
+        else {
             windFormat = R.string.format_wind_mph;
             windSpeed = .621371192237334f * windSpeed;
         }
@@ -178,19 +189,26 @@ public class Utility {
         String direction = "Unknown";
         if (degrees >= 337.5 || degrees < 22.5) {
             direction = "N";
-        } else if (degrees >= 22.5 && degrees < 67.5) {
+        }
+        else if (degrees >= 22.5 && degrees < 67.5) {
             direction = "NE";
-        } else if (degrees >= 67.5 && degrees < 112.5) {
+        }
+        else if (degrees >= 67.5 && degrees < 112.5) {
             direction = "E";
-        } else if (degrees >= 112.5 && degrees < 157.5) {
+        }
+        else if (degrees >= 112.5 && degrees < 157.5) {
             direction = "SE";
-        } else if (degrees >= 157.5 && degrees < 202.5) {
+        }
+        else if (degrees >= 157.5 && degrees < 202.5) {
             direction = "S";
-        } else if (degrees >= 202.5 && degrees < 247.5) {
+        }
+        else if (degrees >= 202.5 && degrees < 247.5) {
             direction = "SW";
-        } else if (degrees >= 247.5 && degrees < 292.5) {
+        }
+        else if (degrees >= 247.5 && degrees < 292.5) {
             direction = "W";
-        } else if (degrees >= 292.5 && degrees < 337.5) {
+        }
+        else if (degrees >= 292.5 && degrees < 337.5) {
             direction = "NW";
         }
         return String.format(context.getString(windFormat), windSpeed, direction);
@@ -207,25 +225,35 @@ public class Utility {
         // http://bugs.openweathermap.org/projects/api/wiki/Weather_Condition_Codes
         if (weatherId >= 200 && weatherId <= 232) {
             return R.drawable.ic_storm;
-        } else if (weatherId >= 300 && weatherId <= 321) {
+        }
+        else if (weatherId >= 300 && weatherId <= 321) {
             return R.drawable.ic_light_rain;
-        } else if (weatherId >= 500 && weatherId <= 504) {
+        }
+        else if (weatherId >= 500 && weatherId <= 504) {
             return R.drawable.ic_rain;
-        } else if (weatherId == 511) {
+        }
+        else if (weatherId == 511) {
             return R.drawable.ic_snow;
-        } else if (weatherId >= 520 && weatherId <= 531) {
+        }
+        else if (weatherId >= 520 && weatherId <= 531) {
             return R.drawable.ic_rain;
-        } else if (weatherId >= 600 && weatherId <= 622) {
+        }
+        else if (weatherId >= 600 && weatherId <= 622) {
             return R.drawable.ic_snow;
-        } else if (weatherId >= 701 && weatherId <= 761) {
+        }
+        else if (weatherId >= 701 && weatherId <= 761) {
             return R.drawable.ic_fog;
-        } else if (weatherId == 761 || weatherId == 781) {
+        }
+        else if (weatherId == 761 || weatherId == 781) {
             return R.drawable.ic_storm;
-        } else if (weatherId == 800) {
+        }
+        else if (weatherId == 800) {
             return R.drawable.ic_clear;
-        } else if (weatherId == 801) {
+        }
+        else if (weatherId == 801) {
             return R.drawable.ic_light_clouds;
-        } else if (weatherId >= 802 && weatherId <= 804) {
+        }
+        else if (weatherId >= 802 && weatherId <= 804) {
             return R.drawable.ic_cloudy;
         }
         return -1;
@@ -242,27 +270,71 @@ public class Utility {
         // http://bugs.openweathermap.org/projects/api/wiki/Weather_Condition_Codes
         if (weatherId >= 200 && weatherId <= 232) {
             return R.drawable.art_storm;
-        } else if (weatherId >= 300 && weatherId <= 321) {
+        }
+        else if (weatherId >= 300 && weatherId <= 321) {
             return R.drawable.art_light_rain;
-        } else if (weatherId >= 500 && weatherId <= 504) {
+        }
+        else if (weatherId >= 500 && weatherId <= 504) {
             return R.drawable.art_rain;
-        } else if (weatherId == 511) {
+        }
+        else if (weatherId == 511) {
             return R.drawable.art_snow;
-        } else if (weatherId >= 520 && weatherId <= 531) {
+        }
+        else if (weatherId >= 520 && weatherId <= 531) {
             return R.drawable.art_rain;
-        } else if (weatherId >= 600 && weatherId <= 622) {
+        }
+        else if (weatherId >= 600 && weatherId <= 622) {
             return R.drawable.art_snow;
-        } else if (weatherId >= 701 && weatherId <= 761) {
+        }
+        else if (weatherId >= 701 && weatherId <= 761) {
             return R.drawable.art_fog;
-        } else if (weatherId == 761 || weatherId == 781) {
+        }
+        else if (weatherId == 761 || weatherId == 781) {
             return R.drawable.art_storm;
-        } else if (weatherId == 800) {
+        }
+        else if (weatherId == 800) {
             return R.drawable.art_clear;
-        } else if (weatherId == 801) {
+        }
+        else if (weatherId == 801) {
             return R.drawable.art_light_clouds;
-        } else if (weatherId >= 802 && weatherId <= 804) {
+        }
+        else if (weatherId >= 802 && weatherId <= 804) {
             return R.drawable.art_clouds;
         }
         return -1;
+    }
+
+    /**
+     * Helper method to check if the device is connected to a network
+     * @param context Context to get the CONNECTIVITY_SERVICE from
+     * @return True if device is online. False otherwise.
+     */
+    public static boolean isOnline(Context context) {
+        ConnectivityManager manager = (ConnectivityManager) context.getSystemService(Context.CONNECTIVITY_SERVICE);
+        NetworkInfo networkInfo = manager.getActiveNetworkInfo();
+
+        return networkInfo != null && networkInfo.isConnectedOrConnecting();
+    }
+
+    /**
+     * Helper method to get the location status
+     * @param context Context to get the PreferenceManager
+     * @return the LocationStatus int type
+     */
+    @SuppressWarnings("ResourceType")
+    public static @SunshineSyncAdapter.LocationStatus int getLocationStatus(Context context) {
+        SharedPreferences sharedPreferences = PreferenceManager.getDefaultSharedPreferences(context);
+        return sharedPreferences.getInt(context.getString(R.string.pref_location_status_key), SunshineSyncAdapter.LOCATION_STATUS_UNKNOWN);
+    }
+
+    /**
+     * Hepler method to reset the current location status in shared prefs
+     * @param context Context to get the PreferenceManager
+     */
+    public static void resetCurrentLocationStatus(Context context) {
+        SharedPreferences sharedPreferences = PreferenceManager.getDefaultSharedPreferences(context);
+        SharedPreferences.Editor editor = sharedPreferences.edit();
+        editor.putInt(context.getString(R.string.pref_location_status_key), SunshineSyncAdapter.LOCATION_STATUS_UNKNOWN);
+        editor.apply();
     }
 }

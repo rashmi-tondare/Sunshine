@@ -1,3 +1,4 @@
+
 package com.experiments.sunshine.app.sync;
 
 import android.accounts.Account;
@@ -19,6 +20,7 @@ import android.net.Uri;
 import android.os.Build;
 import android.os.Bundle;
 import android.preference.PreferenceManager;
+import android.support.annotation.IntDef;
 import android.support.v4.app.NotificationCompat;
 import android.support.v4.app.TaskStackBuilder;
 import android.text.format.Time;
@@ -38,6 +40,8 @@ import java.io.BufferedReader;
 import java.io.IOException;
 import java.io.InputStream;
 import java.io.InputStreamReader;
+import java.lang.annotation.Retention;
+import java.lang.annotation.RetentionPolicy;
 import java.net.HttpURLConnection;
 import java.net.URL;
 import java.util.Vector;
@@ -45,11 +49,22 @@ import java.util.Vector;
 public class SunshineSyncAdapter extends AbstractThreadedSyncAdapter {
     public static final String LOG_TAG = SunshineSyncAdapter.class.getSimpleName();
 
-    private static final String[] NOTIFY_WEATHER_PROJECTION = new String[]{
-            WeatherContract.WeatherEntry.COLUMN_WEATHER_ID,
-            WeatherContract.WeatherEntry.COLUMN_MAX_TEMP,
-            WeatherContract.WeatherEntry.COLUMN_MIN_TEMP,
-            WeatherContract.WeatherEntry.COLUMN_SHORT_DESC
+    @Retention(RetentionPolicy.SOURCE)
+    @IntDef({ LOCATION_STATUS_OK, LOCATION_STATUS_SERVER_DOWN, LOCATION_STATUS_SERVER_INVALID, LOCATION_STATUS_UNKNOWN, LOCATION_STATUS_INVALID })
+    public @interface LocationStatus {
+    }
+
+    public static final int LOCATION_STATUS_OK = 0;
+    public static final int LOCATION_STATUS_SERVER_DOWN = 1;
+    public static final int LOCATION_STATUS_SERVER_INVALID = 2;
+    public static final int LOCATION_STATUS_UNKNOWN = 3;
+    public static final int LOCATION_STATUS_INVALID = 4;
+
+    private static final String[] NOTIFY_WEATHER_PROJECTION = new String[] {
+                                                                             WeatherContract.WeatherEntry.COLUMN_WEATHER_ID,
+                                                                             WeatherContract.WeatherEntry.COLUMN_MAX_TEMP,
+                                                                             WeatherContract.WeatherEntry.COLUMN_MIN_TEMP,
+                                                                             WeatherContract.WeatherEntry.COLUMN_SHORT_DESC
     };
     // these indices must match the projection
     private static final int INDEX_WEATHER_ID = 0;
@@ -151,6 +166,7 @@ public class SunshineSyncAdapter extends AbstractThreadedSyncAdapter {
 
             if (buffer.length() == 0) {
                 // Stream was empty.  No point in parsing.
+                setLocationStatus(getContext(), LOCATION_STATUS_SERVER_DOWN);
                 Log.i(LOG_TAG, "Stream is empty");
                 return;
             }
@@ -160,6 +176,7 @@ public class SunshineSyncAdapter extends AbstractThreadedSyncAdapter {
             Log.e(LOG_TAG, "Error ", e);
             // If the code didn't successfully get the weather data, there's no point in attemping
             // to parse it.
+            setLocationStatus(getContext(), LOCATION_STATUS_SERVER_DOWN);
             return;
         }
         finally {
@@ -176,13 +193,7 @@ public class SunshineSyncAdapter extends AbstractThreadedSyncAdapter {
             }
         }
 
-        try {
-            getWeatherDataFromJson(forecastJsonStr, locationQuery);
-        }
-        catch (JSONException e) {
-            Log.e(LOG_TAG, e.getMessage(), e);
-            e.printStackTrace();
-        }
+        getWeatherDataFromJson(forecastJsonStr, locationQuery);
     }
 
     /**
@@ -193,14 +204,16 @@ public class SunshineSyncAdapter extends AbstractThreadedSyncAdapter {
      * into an Object hierarchy for us.
      */
     private void getWeatherDataFromJson(String forecastJsonStr,
-            String locationSetting)
-                    throws JSONException {
+            String locationSetting) {
 
         // Now we have a String representing the complete forecast in JSON Format.
         // Fortunately parsing is easy:  constructor takes the JSON string and converts it
         // into an Object hierarchy for us.
 
         // These are the names of the JSON objects that need to be extracted.
+
+        //HTTP status code
+        final String OWM_MESSAGE_CODE = "cod";
 
         // Location information
         final String OWM_CITY = "city";
@@ -232,6 +245,23 @@ public class SunshineSyncAdapter extends AbstractThreadedSyncAdapter {
 
         try {
             JSONObject forecastJson = new JSONObject(forecastJsonStr);
+            int statusCode = forecastJson.getInt(OWM_MESSAGE_CODE);
+            // do we have an error?
+            if (forecastJson.has(OWM_MESSAGE_CODE)) {
+                int errorCode = forecastJson.getInt(OWM_MESSAGE_CODE);
+
+                switch (errorCode) {
+                    case HttpURLConnection.HTTP_OK:
+                        break;
+                    case HttpURLConnection.HTTP_NOT_FOUND:
+                        setLocationStatus(getContext(), LOCATION_STATUS_INVALID);
+                        return;
+                    default:
+                        setLocationStatus(getContext(), LOCATION_STATUS_SERVER_DOWN);
+                        return;
+                }
+            }
+
             JSONArray weatherArray = forecastJson.getJSONArray(OWM_LIST);
 
             JSONObject cityJson = forecastJson.getJSONObject(OWM_CITY);
@@ -298,7 +328,7 @@ public class SunshineSyncAdapter extends AbstractThreadedSyncAdapter {
 
                 // Temperatures are in a child object called "temp".  Try not to name variables
                 // "temp" when working with temperature.  It confuses everybody.
-//                JSONObject temperatureObject = dayForecast.getJSONObject(OWM_TEMPERATURE);
+                //                JSONObject temperatureObject = dayForecast.getJSONObject(OWM_TEMPERATURE);
                 high = dayMainForecast.getDouble(OWM_MAX);
                 low = dayMainForecast.getDouble(OWM_MIN);
 
@@ -328,17 +358,17 @@ public class SunshineSyncAdapter extends AbstractThreadedSyncAdapter {
                 // delete old data so we don't build up an endless history
                 getContext().getContentResolver().delete(WeatherContract.WeatherEntry.CONTENT_URI,
                         WeatherContract.WeatherEntry.COLUMN_DATE + " <= ?",
-                        new String[]{Long.toString(dayTime.setJulianDay(julianStartDay - 1))});
-
+                        new String[] { Long.toString(dayTime.setJulianDay(julianStartDay - 1)) });
 
                 notifyWeather();
+                setLocationStatus(getContext(), LOCATION_STATUS_OK);
             }
 
             Log.d(LOG_TAG, "Sunshine service Complete. " + cVVector.size() + " Inserted");
 
         }
         catch (JSONException e) {
-            Log.e(LOG_TAG, e.getMessage(), e);
+            setLocationStatus(getContext(), LOCATION_STATUS_SERVER_INVALID);
             e.printStackTrace();
         }
     }
@@ -436,7 +466,7 @@ public class SunshineSyncAdapter extends AbstractThreadedSyncAdapter {
             Bundle bundle = new Bundle();
             bundle.putBoolean(ContentResolver.SYNC_EXTRAS_EXPEDITED, true);
             bundle.putBoolean(ContentResolver.SYNC_EXTRAS_MANUAL, true);
-            ContentResolver.requestSync(newAccount, context.getString(R.string.content_authority), bundle );
+            ContentResolver.requestSync(newAccount, context.getString(R.string.content_authority), bundle);
         }
         return newAccount;
     }
@@ -513,15 +543,16 @@ public class SunshineSyncAdapter extends AbstractThreadedSyncAdapter {
                         Utility.formatTemperature(context, low, Utility.isMetric(context)));
 
                 SharedPreferences sharedPreferences = PreferenceManager.getDefaultSharedPreferences(getContext());
-                boolean notificationEnabled = sharedPreferences.getBoolean(getContext().getString(R.string.pref_enable_notifications_key), Boolean.parseBoolean(getContext().getString(R.string.pref_enable_notifications_default)));
+                boolean notificationEnabled = sharedPreferences.getBoolean(getContext().getString(R.string.pref_enable_notifications_key),
+                        Boolean.parseBoolean(getContext().getString(R.string.pref_enable_notifications_default)));
                 if (notificationEnabled) {
                     // NotificationCompatBuilder is a very convenient way to build backward-compatible
                     // notifications.  Just throw in some data.
                     NotificationCompat.Builder mBuilder =
-                            new NotificationCompat.Builder(getContext())
-                                    .setSmallIcon(iconId)
-                                    .setContentTitle(title)
-                                    .setContentText(contentText);
+                                                          new NotificationCompat.Builder(getContext())
+                                                                  .setSmallIcon(iconId)
+                                                                  .setContentTitle(title)
+                                                                  .setContentText(contentText);
 
                     // Make something interesting happen when the user clicks on the notification.
                     // In this case, opening the app is sufficient.
@@ -534,13 +565,13 @@ public class SunshineSyncAdapter extends AbstractThreadedSyncAdapter {
                     TaskStackBuilder stackBuilder = TaskStackBuilder.create(context);
                     stackBuilder.addNextIntent(resultIntent);
                     PendingIntent resultPendingIntent =
-                            stackBuilder.getPendingIntent(
-                                    0,
-                                    PendingIntent.FLAG_UPDATE_CURRENT);
+                                                        stackBuilder.getPendingIntent(
+                                                                0,
+                                                                PendingIntent.FLAG_UPDATE_CURRENT);
                     mBuilder.setContentIntent(resultPendingIntent);
 
                     NotificationManager mNotificationManager =
-                            (NotificationManager) getContext().getSystemService(Context.NOTIFICATION_SERVICE);
+                                                               (NotificationManager) getContext().getSystemService(Context.NOTIFICATION_SERVICE);
                     // WEATHER_NOTIFICATION_ID allows you to update the notification later on.
                     mNotificationManager.notify(WEATHER_NOTIFICATION_ID, mBuilder.build());
                 }
@@ -551,6 +582,17 @@ public class SunshineSyncAdapter extends AbstractThreadedSyncAdapter {
                 editor.commit();
             }
         }
+    }
 
+    /**
+     * Sets the location status into shared prefs
+     * @param context Context to get the PreferenceManager from
+     * @param locationStatus The IntDef value to set
+     */
+    private static void setLocationStatus(Context context, @LocationStatus int locationStatus) {
+        SharedPreferences sharedPreferences = PreferenceManager.getDefaultSharedPreferences(context);
+        SharedPreferences.Editor editor = sharedPreferences.edit();
+        editor.putInt(context.getString(R.string.pref_location_status_key), locationStatus);
+        editor.commit();
     }
 }

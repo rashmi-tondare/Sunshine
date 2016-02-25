@@ -28,7 +28,9 @@ import android.preference.PreferenceActivity;
 import android.preference.PreferenceManager;
 import android.text.TextUtils;
 
+import com.experiments.sunshine.app.data.WeatherContract;
 import com.experiments.sunshine.app.services.FetchAddressIntentService;
+import com.experiments.sunshine.app.sync.SunshineSyncAdapter;
 import com.google.android.gms.common.GooglePlayServicesNotAvailableException;
 import com.google.android.gms.common.GooglePlayServicesRepairableException;
 import com.google.android.gms.location.places.Place;
@@ -121,7 +123,21 @@ public class SettingsActivity extends PreferenceActivity
             // For other preferences, set the summary to the value's simple string representation.
             preference.setSummary(stringValue);
             if (preference.getKey().equals(getString(R.string.pref_location_key))) {
-                preference.setSummary(sharedPreferences.getString(getString(R.string.pref_address_key), ""));
+                @SunshineSyncAdapter.LocationStatus int status = Utility.getLocationStatus(this);
+                switch (status) {
+                    case SunshineSyncAdapter.LOCATION_STATUS_OK:
+                        preference.setSummary(stringValue);
+                        break;
+                    case SunshineSyncAdapter.LOCATION_STATUS_UNKNOWN:
+                        preference.setSummary(getString(R.string.pref_location_unknown_description));
+                        break;
+                    case SunshineSyncAdapter.LOCATION_STATUS_INVALID:
+                        preference.setSummary(getString(R.string.empty_forecast_list_invalid_location));
+                        break;
+                    default:
+                        preference.setSummary(stringValue);
+                        break;
+                }
                 preference.setOnPreferenceClickListener(new Preference.OnPreferenceClickListener() {
                     @Override
                     public boolean onPreferenceClick(Preference preference) {
@@ -164,7 +180,7 @@ public class SettingsActivity extends PreferenceActivity
 
                     SharedPreferences.Editor editor = sharedPreferences.edit();
                     if (!TextUtils.isEmpty(address)) {
-                        editor.putString(getString(R.string.pref_address_key), address.toString());
+                        editor.putString(getString(R.string.pref_location_key), address.toString());
                     }
                     else {
                         Location location = new Location(MainActivity.class.getSimpleName());
@@ -188,8 +204,12 @@ public class SettingsActivity extends PreferenceActivity
 
     @Override
     public void onSharedPreferenceChanged(SharedPreferences sharedPreferences, String key) {
-        if (key.equals(getString(R.string.pref_address_key))) {
-            onPreferenceChange(findPreference(getString(R.string.pref_location_key)), sharedPreferences.getString(key, ""));
+        if (key.equals(getString(R.string.pref_location_key))) {
+            Utility.resetCurrentLocationStatus(this);
+            onPreferenceChange(findPreference(getString(R.string.pref_location_key)), sharedPreferences.getString(key, getString(R.string.pref_location_default)));
+        }
+        else if (key.equals(getString(R.string.pref_units_key))) {
+            getContentResolver().notifyChange(WeatherContract.WeatherEntry.CONTENT_URI, null);
         }
     }
 }
